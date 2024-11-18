@@ -7,52 +7,95 @@ This project tackles the challenging task of predicting the **stable height** of
 ## **Advanced Methodologies**
 
 ### **1. Multimodal Feature Extraction**
-We employed multiple pretrained models, leveraging their unique capabilities to extract diverse visual features:
-- **ResNet50**: With residual connections, this model extracts hierarchical features that enhance the understanding of inter-object dependencies, such as centroids and support surfaces.
-- **DenseNet121**: Dense feature propagation captures fine-grained details, making it effective for detecting subtle instabilities in stack configurations.
-- **GoogleNet**: Its multi-scale feature extraction via Inception modules models both local patterns (e.g., edges) and global spatial relationships critical for irregular stacks.
+We employed a combination of cutting-edge pretrained models and task-specific feature engineering to extract comprehensive visual and physical reasoning features:
+- **ResNet50**: The deep residual network structure enables hierarchical feature extraction, capturing both low-level (edges, textures) and high-level (spatial relationships, centroids) features. This ensures precise modeling of dependencies critical for stability analysis, such as support surfaces and weight distribution.
+- **DenseNet121**: Dense connectivity facilitates efficient gradient propagation and reuses features from earlier layers, making it especially effective for detecting small perturbations in block alignments and analyzing fine-grained inter-block interactions.
+- **GoogleNet with Inception Modules**: By leveraging multi-scale convolutional filters, GoogleNet excels at capturing local patterns like block edges and centroids while also understanding global spatial structures, enabling the modeling of complex, irregular stacking geometries.
 
-These architectures were fine-tuned with transfer learning, embedding task-specific priors to optimize feature extraction for the ShapeStacks dataset.
+In addition, the pretrained models were fine-tuned using **transfer learning** to incorporate domain-specific priors, ensuring the network adapts to the nuances of the ShapeStacks dataset. To mitigate overfitting, we employed **layer freezing** during the early stages and gradually unlocked layers as the task complexity increased.
 
 ---
 
 ### **2. Context-Aware Data Augmentation**
-To simulate diverse real-world scenarios, we designed a context-aware augmentation pipeline:
-- **Geometric Transformations**: Random rotations and flipping emulate varying camera perspectives, ensuring invariance to orientation.
-- **Occlusion and Partial Masking**: Random erasure simulates real-world scenarios where objects may be obscured, enhancing robustness under incomplete data.
-- **Lighting Adjustments**: Dynamic variations in brightness and contrast model diverse environmental conditions, ensuring adaptability to AR and robotics applications.
+To generalize the model across diverse stacking configurations, a **physics-informed data augmentation strategy** was developed, emphasizing both visual variability and physical realism:
+- **Geometric Transformations**:
+  - Random rotations (±45°), flips, and scalings simulate varied camera perspectives and object orientations.
+  - Multi-scale cropping forces the model to infer stability from partial or off-centered stacks, mimicking real-world scenarios.
+- **Occlusion and Partial Masking**:
+  - Random erasure and Gaussian noise simulate object occlusions and background interference, improving robustness in cluttered environments.
+- **Lighting Adjustments**:
+  - Brightness, contrast, and hue jittering emulate changes in ambient lighting, enabling adaptability across diverse visual conditions.
+- **Stack Manipulations**:
+  - Synthetic modifications such as simulated toppling, re-stacking, or partial removal of blocks were introduced to force the model to predict stability under non-ideal configurations.
+
+This augmentation pipeline expanded the dataset’s effective diversity, ensuring robustness against unseen conditions and enabling reliable performance across domains like AR and robotics.
 
 ---
 
 ### **3. Advanced Loss Function Engineering**
-We designed hybrid loss functions incorporating domain knowledge:
-1. **Piecewise Penalty Loss**:
-    - Progressively penalizes predictions based on their deviation from stable height, ensuring focus on critical transitions.
-   ```math
-   L(ŷ, y, h) =
-   \begin{cases} 
-      L_{\text{base}}(ŷ, y), & ŷ \leq h \\
-      L_{\text{base}}(ŷ, y) + λ_1(ŷ - h), & h < ŷ \leq h + δ_1 \\
-      L_{\text{base}}(ŷ, y) + λ_2(ŷ - h), & h + δ_1 < ŷ \leq h + δ_2 \\
-      L_{\text{base}}(ŷ, y) + λ_3(ŷ - h), & ŷ > h + δ_2
-   \end{cases}
-### **Adaptive Loss Function**
-Dynamically weighs samples based on stack complexity, prioritizing simpler cases during early training to establish a robust baseline before tackling complex configurations.
+#### **Piecewise Penalty Loss**
+Designed specifically for stability prediction, this loss function penalizes deviations relative to stability-critical thresholds:
+1. Mild penalties for near-correct predictions, encouraging fine-tuned adjustments.
+2. Steeper penalties for significant errors to guide the model away from high-magnitude deviations.
+
+\[
+L(ŷ, y, h) =
+\begin{cases} 
+   L_{\text{base}}(ŷ, y), & ŷ \leq h \\
+   L_{\text{base}}(ŷ, y) + λ_1(ŷ - h), & h < ŷ \leq h + δ_1 \\
+   L_{\text{base}}(ŷ, y) + λ_2(ŷ - h), & h + δ_1 < ŷ \leq h + δ_2 \\
+   L_{\text{base}}(ŷ, y) + λ_3(ŷ - h), & ŷ > h + δ_2
+\end{cases}
+\]
+
+#### **Adaptive Loss Function**
+To address the imbalance between simple and complex stacking scenarios, an adaptive weighting mechanism was introduced:
+- Samples are dynamically weighted based on **stack attributes** (e.g., shape complexity, centroid deviations).
+- During early training, simpler samples are prioritized to establish foundational stability reasoning.
+- As training progresses, the model shifts focus to more challenging configurations, ensuring balanced learning.
+
+\[
+L_{\text{adaptive}}(ŷ, y) = w \cdot L_{\text{base}}(ŷ, y)
+\]
+where \( w \) is a function of stack complexity, defined as:
+\[
+w =
+\begin{cases} 
+   1.0, & \text{simple stacks (low variance)} \\
+   0.5, & \text{moderate complexity stacks} \\
+   0.25, & \text{highly unstable or irregular stacks}
+\end{cases}
+\]
 
 ---
 
-### **Transformer-Based Attention Mechanisms**
-To address the complexity of spatial dependencies in stacking:
+### **4. Transformer-Based Attention Mechanisms**
+To enhance the model’s ability to reason about spatial relationships and dependencies:
+- **Detection Transformer (DETR)**:
+  - Utilizes multi-head self-attention to model global relationships between blocks.
+  - Outputs bounding boxes and class probabilities, providing high-level geometric context for stability analysis.
+- **Spatial Attention Layers**:
+  - Added to CNN backbones to prioritize critical regions, such as tipping points or unstable centroids.
+  - Dynamically refines feature maps to ensure focus on regions with the greatest impact on stability.
 
-- **DETR (Detection Transformer)**: Detects object bounding boxes and incorporates multi-head attention to model spatial relationships.
-- **Spatial Attention Layers**: Embedded into CNN backbones to enhance focus on critical regions, such as potential tipping points or centroids.
+---
 
 ### **5. Multistage Training Pipeline**
-We implemented a progressive training strategy to ensure the model learns effectively while maintaining robust generalization:
+A **three-stage curriculum learning strategy** was implemented to gradually enhance the model’s reasoning capabilities:
+1. **Stage 1**: Training on simplified stacks with minimal variation to establish a baseline understanding of stability principles, such as centroids and support surfaces.
+2. **Stage 2**: Introducing augmented and synthetic scenarios, including toppling and occlusion effects, to enhance robustness under diverse configurations.
+3. **Stage 3**: Fine-tuning on high-complexity stacks, leveraging adaptive loss weighting to address edge cases and challenging scenarios.
 
-- **Stage 1**: Fine-tuning on simpler stacking configurations to establish a foundational understanding of stability patterns and geometric reasoning.
-- **Stage 2**: Introducing complex synthetic configurations generated via advanced data augmentation techniques, improving the model's ability to handle real-world scenarios.
-- **Stage 3**: Applying **curriculum learning** to progressively increase the complexity of training samples, mimicking human-like learning progression and enhancing stability prediction under challenging conditions.
+Each stage incorporated dynamic hyperparameter tuning, including learning rate decay, dropout regularization, and data sampling adjustments to ensure optimal convergence.
+
+---
+
+### **6. Cross-Domain Generalization**
+To validate the model’s practical applicability:
+- Conducted domain adaptation experiments, transferring the model to new datasets with unseen stacking configurations.
+- Evaluated generalization to real-world tasks, such as robotic manipulation and AR-based virtual object alignment.
+
+This comprehensive pipeline ensures that the model is not only accurate but also adaptable across diverse use cases in **visual physical reasoning**.
 
 ---
 
