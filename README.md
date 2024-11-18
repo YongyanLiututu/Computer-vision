@@ -38,7 +38,7 @@ Designed specifically for stability prediction, this loss function penalizes dev
 1. Mild penalties for near-correct predictions, encouraging fine-tuned adjustments.
 2. Steeper penalties for significant errors to guide the model away from high-magnitude deviations.
 
-\[
+$$
 L(ŷ, y, h) =
 \begin{cases} 
    L_{\text{base}}(ŷ, y), & ŷ \leq h \\
@@ -46,7 +46,8 @@ L(ŷ, y, h) =
    L_{\text{base}}(ŷ, y) + λ_2(ŷ - h), & h + δ_1 < ŷ \leq h + δ_2 \\
    L_{\text{base}}(ŷ, y) + λ_3(ŷ - h), & ŷ > h + δ_2
 \end{cases}
-\]
+$$
+
 
 #### **Adaptive Loss Function**
 To address the imbalance between simple and complex stacking scenarios, an adaptive weighting mechanism was introduced:
@@ -54,18 +55,18 @@ To address the imbalance between simple and complex stacking scenarios, an adapt
 - During early training, simpler samples are prioritized to establish foundational stability reasoning.
 - As training progresses, the model shifts focus to more challenging configurations, ensuring balanced learning.
 
-\[
+$$
 L_{\text{adaptive}}(ŷ, y) = w \cdot L_{\text{base}}(ŷ, y)
-\]
+$$
 where \( w \) is a function of stack complexity, defined as:
-\[
+$$
 w =
 \begin{cases} 
    1.0, & \text{simple stacks (low variance)} \\
    0.5, & \text{moderate complexity stacks} \\
    0.25, & \text{highly unstable or irregular stacks}
 \end{cases}
-\]
+$$
 
 ---
 
